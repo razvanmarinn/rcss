@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package master_dfs;
+
+option go_package = "github.com/razvanmarinn/rcss/proto/master_com";
+
+service ClientService {
+    rpc GetBatchDestination(ClientRequestToMaster) returns (MasterResponse);
+    rpc SendBatch(ClientRequestToWorker) returns (WorkerResponse);
+
+}
+
+message MasterResponse {
+    string worker_id = 1;
+}
+
+message ClientRequestToMaster {
+    string batch_id = 1;
+    string size = 2;
+    string batch_idx = 3;
+}
+
+message WorkerResponse {
+    bool success = 1;
+}
+
+message ClientRequestToWorker {
+    string batch_id = 1;
+    bytes data = 2;
+}
