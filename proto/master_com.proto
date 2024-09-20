@@ -4,20 +4,42 @@ package master_dfs;
 
 option go_package = "github.com/razvanmarinn/rcss/proto/master_com";
 
-service ClientService {
-    rpc GetBatchDestination(ClientRequestToMaster) returns (MasterResponse);
-    rpc SendBatch(ClientRequestToWorker) returns (WorkerResponse);
+service MasterService {
+    rpc GetBatchDestination(ClientRequestToMaster) returns (MasterResponse);  // Tells client where a batch is located (worker)
+    rpc GetMetadata(Location) returns (MasterMetadataResponse);
+}
 
+service WorkerService {
+    rpc SendBatch(ClientRequestToWorker) returns (WorkerResponse);            // Client sends batch to worker
+    rpc GetBatch(Ttt) returns (WorkerBatchResponse);                          // Client retrieves batch from worker
+}
+
+message Ttt {
+    string batchID = 1;
+}
+message BatchLocation {
+    repeated string worker_ids = 1;  // List of worker IDs for a batch
+}
+
+message MasterMetadataResponse {
+    repeated string batches = 1;               
+    map<string, BatchLocation> batch_locations = 2;    
+}  
+
+message Location {
+    string fileName =1;
 }
 
 message MasterResponse {
-    string worker_id = 1;
+    string worker_ip = 1;
+    int32 worker_port = 2;
 }
 
 message ClientRequestToMaster {
     string batch_id = 1;
-    string size = 2;
-    string batch_idx = 3;
+    string batch_size = 2;
+    string file_name = 3;
+    int64 file_hash = 4;
 }
 
 message WorkerResponse {
@@ -27,4 +49,8 @@ message WorkerResponse {
 message ClientRequestToWorker {
     string batch_id = 1;
     bytes data = 2;
+}
+
+message WorkerBatchResponse {
+    bytes batch_data = 1;
 }
