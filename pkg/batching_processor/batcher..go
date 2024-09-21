@@ -1,6 +1,6 @@
 package batchingprocessor
 
-import "github.com/razvanmarinn/rcss/internal/batches"
+import "github.com/razvanmarinn/rcss/pkg/batches"
 
 const BATCH_SIZE = (1024 * 1024) * 62
 
