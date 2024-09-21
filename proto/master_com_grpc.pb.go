@@ -4,7 +4,7 @@
 // - protoc             v5.27.3
 // source: master_com.proto
 
-package master_com
+package proto
 
 import (
 	context "context"

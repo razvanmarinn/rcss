@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package master_dfs;
 
-option go_package = "github.com/razvanmarinn/rcss/proto/master_com";
+option go_package = "github.com/razvanmarinn/rcss/proto";
 
 service MasterService {
     rpc GetBatchDestination(ClientRequestToMaster) returns (MasterResponse);  // Tells client where a batch is located (worker)
