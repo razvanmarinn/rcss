@@ -12,7 +12,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const maxMsgSize = 100 * 1024 * 1024 
+const maxMsgSize = 100 * 1024 * 1024
+
 type RCSSClient struct {
 	UserId        int
 	CurrentMaster string
@@ -21,10 +22,9 @@ type RCSSClient struct {
 func NewRCSSClient() *RCSSClient {
 	return &RCSSClient{
 		UserId:        rand.Intn(100),
-		CurrentMaster: "localhost:50052", 
+		CurrentMaster: "localhost:50055",
 	}
 }
-
 
 func (rc *RCSSClient) GetMetadata(fileName string) (*pb.MasterMetadataResponse, error) {
 	conn, err := grpc.Dial(rc.CurrentMaster, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -58,7 +58,6 @@ func (rc *RCSSClient) GetWorkerClient(location string) (pb.WorkerServiceClient, 
 	}
 	return pb.NewWorkerServiceClient(conn), nil
 }
-
 
 func (rc *RCSSClient) GetFileBackFromWorkers(fileName string) ([]byte, error) {
 	metadata, err := rc.GetMetadata(fileName)
@@ -98,11 +97,9 @@ func (rc *RCSSClient) ProcessFileToMaster(fileName string, fileContent []byte) e
 
 	client := pb.NewMasterServiceClient(conn)
 
-	req := &pb.ClientRequestToMaster{
+	req := &pb.ClientBatchRequestToMaster{
 		BatchId:   batchID.String(),
-		FileName:  fileName,
 		BatchSize: fmt.Sprintf("%d", len(fileContent)),
-		FileHash:  int64(batchID.ID()),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)

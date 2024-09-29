@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	MasterService_RegisterFile_FullMethodName        = "/master_dfs.MasterService/RegisterFile"
 	MasterService_GetBatchDestination_FullMethodName = "/master_dfs.MasterService/GetBatchDestination"
 	MasterService_GetMetadata_FullMethodName         = "/master_dfs.MasterService/GetMetadata"
 )
@@ -27,7 +28,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MasterServiceClient interface {
-	GetBatchDestination(ctx context.Context, in *ClientRequestToMaster, opts ...grpc.CallOption) (*MasterResponse, error)
+	RegisterFile(ctx context.Context, in *ClientFileRequestToMaster, opts ...grpc.CallOption) (*MasterFileResponse, error)
+	GetBatchDestination(ctx context.Context, in *ClientBatchRequestToMaster, opts ...grpc.CallOption) (*MasterResponse, error)
 	GetMetadata(ctx context.Context, in *Location, opts ...grpc.CallOption) (*MasterMetadataResponse, error)
 }
 
@@ -39,7 +41,17 @@ func NewMasterServiceClient(cc grpc.ClientConnInterface) MasterServiceClient {
 	return &masterServiceClient{cc}
 }
 
-func (c *masterServiceClient) GetBatchDestination(ctx context.Context, in *ClientRequestToMaster, opts ...grpc.CallOption) (*MasterResponse, error) {
+func (c *masterServiceClient) RegisterFile(ctx context.Context, in *ClientFileRequestToMaster, opts ...grpc.CallOption) (*MasterFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MasterFileResponse)
+	err := c.cc.Invoke(ctx, MasterService_RegisterFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *masterServiceClient) GetBatchDestination(ctx context.Context, in *ClientBatchRequestToMaster, opts ...grpc.CallOption) (*MasterResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MasterResponse)
 	err := c.cc.Invoke(ctx, MasterService_GetBatchDestination_FullMethodName, in, out, cOpts...)
@@ -63,7 +75,8 @@ func (c *masterServiceClient) GetMetadata(ctx context.Context, in *Location, opt
 // All implementations must embed UnimplementedMasterServiceServer
 // for forward compatibility.
 type MasterServiceServer interface {
-	GetBatchDestination(context.Context, *ClientRequestToMaster) (*MasterResponse, error)
+	RegisterFile(context.Context, *ClientFileRequestToMaster) (*MasterFileResponse, error)
+	GetBatchDestination(context.Context, *ClientBatchRequestToMaster) (*MasterResponse, error)
 	GetMetadata(context.Context, *Location) (*MasterMetadataResponse, error)
 	mustEmbedUnimplementedMasterServiceServer()
 }
@@ -75,7 +88,10 @@ type MasterServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedMasterServiceServer struct{}
 
-func (UnimplementedMasterServiceServer) GetBatchDestination(context.Context, *ClientRequestToMaster) (*MasterResponse, error) {
+func (UnimplementedMasterServiceServer) RegisterFile(context.Context, *ClientFileRequestToMaster) (*MasterFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterFile not implemented")
+}
+func (UnimplementedMasterServiceServer) GetBatchDestination(context.Context, *ClientBatchRequestToMaster) (*MasterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetBatchDestination not implemented")
 }
 func (UnimplementedMasterServiceServer) GetMetadata(context.Context, *Location) (*MasterMetadataResponse, error) {
@@ -102,8 +118,26 @@ func RegisterMasterServiceServer(s grpc.ServiceRegistrar, srv MasterServiceServe
 	s.RegisterService(&MasterService_ServiceDesc, srv)
 }
 
+func _MasterService_RegisterFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientFileRequestToMaster)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MasterServiceServer).RegisterFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MasterService_RegisterFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MasterServiceServer).RegisterFile(ctx, req.(*ClientFileRequestToMaster))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MasterService_GetBatchDestination_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ClientRequestToMaster)
+	in := new(ClientBatchRequestToMaster)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -115,7 +149,7 @@ func _MasterService_GetBatchDestination_Handler(srv interface{}, ctx context.Con
 		FullMethod: MasterService_GetBatchDestination_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServiceServer).GetBatchDestination(ctx, req.(*ClientRequestToMaster))
+		return srv.(MasterServiceServer).GetBatchDestination(ctx, req.(*ClientBatchRequestToMaster))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -145,6 +179,10 @@ var MasterService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "master_dfs.MasterService",
 	HandlerType: (*MasterServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RegisterFile",
+			Handler:    _MasterService_RegisterFile_Handler,
+		},
 		{
 			MethodName: "GetBatchDestination",
 			Handler:    _MasterService_GetBatchDestination_Handler,
