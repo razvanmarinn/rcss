@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	cl "github.com/razvanmarinn/rcss/internal/client"
+	batchingprocessor "github.com/razvanmarinn/rcss/pkg/batching_processor"
 )
 
 var rcssClient *cl.RCSSClient
@@ -37,13 +38,11 @@ func getFileFromMaster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	fileContent, err := rcssClient.GetFileBackFromWorkers(fileName)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error retrieving file: %v", err), http.StatusInternalServerError)
 		return
 	}
-
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
@@ -55,37 +54,45 @@ func getFileFromMaster(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func setFileToMaster(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	fileName := vars["fileName"]
-
-	if fileName == "" {
-		http.Error(w, "File name is required", http.StatusBadRequest)
+	err := r.ParseMultipartForm(1 << 30)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error parsing form: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	file, _, err := r.FormFile("file")
+	file, handler, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error getting file: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Error retrieving file: %v", err), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
-
-	fileContent, err := io.ReadAll(file)
+	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error reading file: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-
-	err = rcssClient.ProcessFileToMaster(fileName, fileContent)
+	fileName := handler.Filename
+	batches := batchingprocessor.NewBatchProcessor(fileBytes).Process()
+	err = rcssClient.RegisterFileMetadata(fileName, batches)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error processing file: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Respond with success
-	fmt.Fprintf(w, "File %s uploaded successfully", fileName)
+
+
+	for _, batch := range batches {
+		wIp, wPort, err := rcssClient.GetBatchDest(batch.UUID, batch.Data)
+		if err != nil {
+			fmt.Errorf("Error %s", err)
+		}
+		rcssClient.SendBatchToWorkers(wIp, wPort, batch.UUID, batch.Data)
+	}
+	
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "File %s processed successfully", fileName)
 }

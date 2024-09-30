@@ -8,8 +8,8 @@ type BatchProcessor struct {
 	data []byte
 }
 
-func NewBatchProcessor(data []byte) BatchProcessor {
-	return BatchProcessor{
+func NewBatchProcessor(data []byte) *BatchProcessor {
+	return &BatchProcessor{
 		data: data,
 	}
 }

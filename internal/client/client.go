@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/razvanmarinn/rcss/pkg/batches"
 	pb "github.com/razvanmarinn/rcss/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -86,44 +87,84 @@ func (rc *RCSSClient) GetFileBackFromWorkers(fileName string) ([]byte, error) {
 	return fileData, nil
 }
 
-// Process file by sending it to the master node for distribution to workers
-func (rc *RCSSClient) ProcessFileToMaster(fileName string, fileContent []byte) error {
-	batchID := uuid.New()
+func (rc *RCSSClient) RegisterFileMetadata(fileName string, batches []batches.Batch) error {
+    conn, err := grpc.Dial(rc.CurrentMaster, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return fmt.Errorf("failed to connect to master: %v", err)
+    }
+    defer conn.Close()
+
+    client := pb.NewMasterServiceClient(conn)
+
+
+    req := &pb.ClientFileRequestToMaster{
+        FileName: fileName,
+        Hash:     23, 
+        Batches:  make([]string, len(batches)), 
+        FileSize: 0, 
+    }
+
+
+    for i, batch := range batches {
+        req.Batches[i] = batch.UUID.String()
+    }
+
+
+    ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+    defer cancel()
+
+    res, err := client.RegisterFile(ctx, req)
+    if err != nil {
+        return fmt.Errorf("failed to get worker destination: %v", err)
+    }
+
+    fmt.Printf("Response: %v\n", res)
+    return nil
+}
+
+func (rc *RCSSClient) GetBatchDest(batch_id uuid.UUID, batch_content []byte) (string, int32, error) {
 	conn, err := grpc.Dial(rc.CurrentMaster, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return fmt.Errorf("failed to connect to master: %v", err)
+		return "", 0, fmt.Errorf("failed to connect to master: %v", err)
 	}
 	defer conn.Close()
 
 	client := pb.NewMasterServiceClient(conn)
-
 	req := &pb.ClientBatchRequestToMaster{
-		BatchId:   batchID.String(),
-		BatchSize: fmt.Sprintf("%d", len(fileContent)),
+		BatchId:   batch_id.String(),
+		BatchSize: int32(len(batch_content)),
 	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
 
 	res, err := client.GetBatchDestination(ctx, req)
-	if err != nil {
-		return fmt.Errorf("failed to get worker destination: %v", err)
+	return res.GetWorkerIp(), res.GetWorkerPort(), nil
+}
+
+func (rc *RCSSClient) SendBatchToWorkers(worker_ip string, worker_port int32, batch_id uuid.UUID, batch_content []byte) error {
+	combineIpAndPort := func(ip string, port int32) string {
+		return fmt.Sprintf("%s:%d", ip, port)
+
 	}
 
-	workerClient, err := rc.GetWorkerClient(fmt.Sprintf("%s:%d", res.WorkerIp, res.WorkerPort))
+	conn, err := grpc.Dial(combineIpAndPort(worker_ip, worker_port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(maxMsgSize)),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to connect to worker: %v", err)
 	}
 
-	sendReq := &pb.ClientRequestToWorker{
-		BatchId: batchID.String(),
-		Data:    fileContent,
+	client := pb.NewWorkerServiceClient(conn)
+	req := &pb.ClientRequestToWorker{
+		BatchId: batch_id.String(),
+		Data:    batch_content,
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+	res, err := client.SendBatch(ctx, req)
 
-	_, err = workerClient.SendBatch(ctx, sendReq)
-	if err != nil {
-		return fmt.Errorf("failed to send batch to worker: %v", err)
-	}
-
+	fmt.Println(res.Success)
 	return nil
 }

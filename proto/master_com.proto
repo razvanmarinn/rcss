@@ -44,7 +44,7 @@ message ClientFileRequestToMaster {
 }
 message ClientBatchRequestToMaster {
     string batch_id = 1;
-    string batch_size = 2;
+    int32 batch_size = 2;
 }
 
 message WorkerResponse {
