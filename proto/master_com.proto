@@ -35,13 +35,22 @@ message MasterResponse {
     string worker_ip = 1;
     int32 worker_port = 2;
 }
+message Batch {
+    string uuid = 1;
+    int32 size = 2;  
+}
+
+message Batches {
+    repeated Batch batches = 1; 
+}
 
 message ClientFileRequestToMaster {
-    string fileName =1;
-    int32 hash =2;
-    repeated string batches = 3;
-    int64 fileSize =4;
+    string fileName = 1;          
+    int32 hash = 2;               
+    int64 fileSize = 3;           
+    Batches batchInfo = 4;        
 }
+
 message ClientBatchRequestToMaster {
     string batch_id = 1;
     int32 batch_size = 2;

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/razvanmarinn/rcss/pkg/batches"
+	"github.com/razvanmarinn/rcss/pkg/hashing"
 	pb "github.com/razvanmarinn/rcss/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -88,38 +89,41 @@ func (rc *RCSSClient) GetFileBackFromWorkers(fileName string) ([]byte, error) {
 }
 
 func (rc *RCSSClient) RegisterFileMetadata(fileName string, batches []batches.Batch) error {
-    conn, err := grpc.Dial(rc.CurrentMaster, grpc.WithTransportCredentials(insecure.NewCredentials()))
-    if err != nil {
-        return fmt.Errorf("failed to connect to master: %v", err)
-    }
-    defer conn.Close()
+	conn, err := grpc.Dial(rc.CurrentMaster, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to connect to master: %v", err)
+	}
+	defer conn.Close()
 
-    client := pb.NewMasterServiceClient(conn)
+	client := pb.NewMasterServiceClient(conn)
 
-
-    req := &pb.ClientFileRequestToMaster{
+	req := &pb.ClientFileRequestToMaster{
         FileName: fileName,
-        Hash:     23, 
-        Batches:  make([]string, len(batches)), 
+        Hash:     int32(hashing.FNV32a(fileName, len(batches))),
         FileSize: 0, 
+        BatchInfo: &pb.Batches{
+            Batches: make([]*pb.Batch, len(batches)), 
+        },
     }
 
-
-    for i, batch := range batches {
-        req.Batches[i] = batch.UUID.String()
+	for i, batch := range batches {
+        req.BatchInfo.Batches[i] = &pb.Batch{
+            Uuid: batch.UUID.String(),       
+            Size: int32(len(batch.Data)),    
+        }
+        req.FileSize += int64(len(batch.Data)); 
     }
 
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
 
-    ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
-    defer cancel()
+	res, err := client.RegisterFile(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to get worker destination: %v", err)
+	}
 
-    res, err := client.RegisterFile(ctx, req)
-    if err != nil {
-        return fmt.Errorf("failed to get worker destination: %v", err)
-    }
-
-    fmt.Printf("Response: %v\n", res)
-    return nil
+	fmt.Printf("Response: %v\n", res)
+	return nil
 }
 
 func (rc *RCSSClient) GetBatchDest(batch_id uuid.UUID, batch_content []byte) (string, int32, error) {

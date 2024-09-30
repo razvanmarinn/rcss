@@ -29,29 +29,3 @@ func (bp *BatchProcessor) Process() []batches.Batch {
 	}
 	return _batches
 }
-
-
-
-// func (mn *MasterNode) FNV32a(text string) uint32 {
-// 	algorithm := fnv.New32a()
-// 	algorithm.Write([]byte(text))
-// 	return algorithm.Sum32()
-// }
-
-// func (mn *MasterNode) CheckAlreadyProcessed(hash uint32) bool {
-// 	mn.lock.Lock()
-// 	defer mn.lock.Unlock()
-// 	for _, fileMeta := range mn.FileRegistry {
-// 		if fileMeta.Hash == hash {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
-
-// hash := mn.FNV32a(string(fileName) + fmt.Sprintf("%d", len(fileContent)))
-
-// 	if mn.CheckAlreadyProcessed(hash) {
-// 		log.Printf("File %s already processed", fileName)
-// 		return
-// 	}
